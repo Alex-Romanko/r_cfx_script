@@ -84,7 +84,11 @@ move_files_to_archive <- function(files_to_process) {
   setwd(start_dir)
 }
 
-write_to_gs <- function (table_to_append) {
+write_to_gs <- function (table_to_append,
+                         google_spreadsheet_id,
+                         scope,
+                         sheet_name_to_append,
+                         sheetId) {
   # blank of json for inserting rows
   ins_range <- jsonlite::fromJSON('{
     "requests": [
@@ -100,21 +104,14 @@ write_to_gs <- function (table_to_append) {
       }
     ]
     }')
-  # spreadsheet to write
-  google_spreadsheet <- 'https://docs.google.com/spreadsheets/d/16Ox7jX0ljQ5r6Zc7492uaW583-3wDS9HlREXVRNCY9Q/edit#gid=1884007052'
-  # list of the spreadsheet 
-  sheet_to_append <- "R_CFX_raw"
-  # insert sheetId must be id of list named after "R_CFX_raw"
-  ins_range$requests$insertRange$range$sheetId <- 1884007052
+  # base api url
+  API_url_body <- "https://sheets.googleapis.com/v4/spreadsheets/"
+  # set sheet id
+  ins_range$requests$insertRange$range$sheetId <- sheetId
   # insert empty rows 
-  ins_range$requests$insertRange$range$endRowIndex <- nrow(ready_to_append)+2
-  
+  ins_range$requests$insertRange$range$endRowIndex <- nrow(table_to_append)+2
+  # create request body
   body_ins_range <- jsonlite::toJSON(ins_range)
-  
-  # permissions to request
-  scope <-  c('https://www.googleapis.com/auth/spreadsheets', 
-              'https://www.googleapis.com/auth/drive')
-  
   # get authentication 
   token <- token_fetch(scopes = scope)
   gs4_auth(
@@ -125,12 +122,12 @@ write_to_gs <- function (table_to_append) {
     use_oob = gargle::gargle_oob_default(),
     token = token
   )
-  # get request for inserting blank rows
-  res <- POST("https://sheets.googleapis.com/v4/spreadsheets/16Ox7jX0ljQ5r6Zc7492uaW583-3wDS9HlREXVRNCY9Q:batchUpdate", 
-              body = body_ins_range, encode = "json",  config(token = token))
+  # perform request for inserting blank rows
+  response <- POST(paste(API_url_body, google_spreadsheet_id, ":batchUpdate", sep=""), 
+                   body = body_ins_range, encode = "json",  config(token = token))
   # write data frame in the beginning of the table
-  range_write(data = ready_to_append, ss = google_spreadsheet, sheet = sheet_to_append, 
-              range = ('A3'),col_names = F, reformat = F)
+  range_write(data = table_to_append, ss = google_spreadsheet_id, sheet = sheet_name_to_append, 
+              range = ('A3'), col_names = F, reformat = F)
 }
 
 # ------------------------------------------------------------------------------
@@ -152,11 +149,28 @@ pre_processed_tables <- lapply(all_CSV_files, function(x) get_single_dt(x))
 ready_to_append <- rbindlist(lapply(pre_processed_tables, function(x) 
                                     get_wide_table(x)), fill=TRUE)
 
-# write to local backup 
-fwrite(ready_to_append, 'ready_to_append.csv', 
+# write to local backup
+fwrite(ready_to_append, 'output_data.csv', 
        append = T, col.names = F, row.names = F)
 
-write_to_gs(ready_to_append)
+# working spreadsheet
+google_spreadsheet_id <- "17SyhYfyhkHtMj5IHRIQep-H7_R9g6gvgMEtj_rXakD0"
+
+# name of the working list 
+sheet_name_to_append <- "R_CFX_raw"
+
+# insert sheetId - must be id of working list
+sheetId <- 982068730
+
+# permissions to request
+scope <-  c('https://www.googleapis.com/auth/spreadsheets', 
+            'https://www.googleapis.com/auth/drive')
+
+write_to_gs(ready_to_append,
+            google_spreadsheet_id,
+            scope,
+            sheet_name_to_append,
+            sheetId)
 
 # clean CFX_files folder
 move_files_to_archive(files_to_process)
