@@ -72,7 +72,7 @@ get_wide_table <- function(data_table) {
   return(wide_table)
 }
 
-move_files_to_archive <- function(files_to_process) {
+move_files_to_archive <- function(files_to_process, start_dir) {
   setwd(start_dir)
   setwd('CFX_files')
   cfx_file_folder <- getwd()
@@ -173,6 +173,6 @@ write_to_gs(ready_to_append,
             sheetId)
 
 # clean CFX_files folder
-move_files_to_archive(files_to_process)
+move_files_to_archive(files_to_process, start_dir)
 
 print("Congratulation! Files successfully uploaded!")
